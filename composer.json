@@ -20,6 +20,8 @@
 		"ext-pdo-sqlite": "For SQLite databases"
 	},
 	"autoload": {
-		"files": ["medoo.php"]
+        "psr-0": {
+            "Medoo": "src/"
+        }
 	}
 }

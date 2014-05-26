@@ -1,180 +1,92 @@
 <?php
-/*!
+
+/**
  * Medoo database framework
- * http://medoo.in
- * Version 0.9.5.3
- * 
- * Copyright 2014, Angel Lai
- * Released under the MIT license
+ *
+ * @link http://medoo.in
+ * @copyright Angel Lai 2014
+ * @license MIT
+ * @version 0.9.5.3
  */
-class medoo
+
+namespace Medoo;
+
+class Medoo
 {
-	protected $database_type = 'mysql';
-
-	// For MySQL, MariaDB, MSSQL, Sybase, PostgreSQL, Oracle
-	protected $server = 'localhost';
-
-	protected $username = 'username';
-
-	protected $password = 'password';
-
-	// For SQLite
-	protected $database_file = '';
-
-	// Optional
-	protected $port = 3306;
-
-	protected $charset = 'utf8';
-
-	protected $database_name = '';
-
-	protected $option = array();
-
-	// Variable 
+	/**
+	 * @var string
+	 */
 	protected $queryString;
 
-	public function __construct($options = null)
+	/**
+	 * Constructor
+	 *
+	 * @param \PDO $pdo
+	 */
+	public function __construct($pdo = null)
 	{
-		try {
-			$commands = array();
-
-			if (is_string($options) && !empty($options))
-			{
-				if (strtolower($this->database_type) == 'sqlite')
-				{
-					$this->database_file = $options;
-				}
-				else
-				{
-					$this->database_name = $options;
-				}
-			}
-			elseif (is_array($options))
-			{
-				foreach ($options as $option => $value)
-				{
-					$this->$option = $value;
-				}
-			}
-
-			if (
-				isset($this->port) &&
-				is_int($this->port * 1)
-			)
-			{
-				$port = $this->port;
-			}
-
-			$set_charset = "SET NAMES '" . $this->charset . "'";
-			$type = strtolower($this->database_type);
-			$is_port = isset($port);
-
-			switch ($type)
-			{
-				case 'mariadb':
-					$type = 'mysql';
-
-				case 'mysql':
-					// Make MySQL using standard quoted identifier
-					$commands[] = 'SET SQL_MODE=ANSI_QUOTES';
-
-				case 'pgsql':
-					$dsn = $type . ':host=' . $this->server . ($is_port ? ';port=' . $port : '') . ';dbname=' . $this->database_name;
-					$commands[] = $set_charset;
-					break;
-
-				case 'sybase':
-					$dsn = 'dblib:host=' . $this->server . ($is_port ? ':' . $port : '') . ';dbname=' . $this->database_name;
-					$commands[] = $set_charset;
-					break;
-
-				case 'oracle':
-					$dsn = 'oci:host=' . $this->server . ($is_port ? ';port=' . $port : '') . ';dbname=' . $this->database_name . ';charset=' . $this->charset;
-					break;
-
-				case 'mssql':
-					$dsn = strpos(PHP_OS, 'WIN') !== false ?
-						'sqlsrv:server=' . $this->server . ($is_port ? ',' . $port : '') . ';database=' . $this->database_name :
-						'dblib:host=' . $this->server . ($is_port ? ':' . $port : '') . ';dbname=' . $this->database_name;
-
-					// Keep MSSQL QUOTED_IDENTIFIER is ON for standard quoting
-					$commands[] = 'SET QUOTED_IDENTIFIER ON';
-					$commands[] = $set_charset;
-					break;
-
-				case 'sqlite':
-					$dsn = $type . ':' . $this->database_file;
-					$this->username = null;
-					$this->password = null;
-					break;
-			}
-
-			$this->pdo = new PDO(
-				$dsn, 
-				$this->username,
-				$this->password,
-				$this->option
-			);
-
-			foreach ($commands as $value)
-			{
-				$this->pdo->exec($value);	
-			}
-		}
-		catch (PDOException $e) {
-			throw new Exception($e->getMessage());
-		}
+		null !== $pdo && $this->pdo = $pdo;
 	}
 
+	/**
+	 * Passthru pdo->query()
+	 *
+	 * @param string $query
+	 * @return \PDOStatement
+	 */
 	public function query($query)
 	{
 		$this->queryString = $query;
-
 		return $this->pdo->query($query);
 	}
 
+	/**
+	 * Passthru pdo->exec()
+	 *
+	 * @param string $query
+	 * @return \PDOStatement
+	 */
 	public function exec($query)
 	{
 		$this->queryString = $query;
-
 		return $this->pdo->exec($query);
 	}
 
+	/**
+	 * Passthru pdo->quote()
+	 *
+	 * @param string $string
+	 * @return string
+	 */
 	public function quote($string)
 	{
 		return $this->pdo->quote($string);
 	}
 
-	protected function column_quote($string)
+	protected function columnQuote($string)
 	{
 		return '"' . str_replace('.', '"."', $string) . '"';
 	}
 
-	protected function column_push($columns)
+	protected function columnPush($columns)
 	{
-		if ($columns == '*')
-		{
+		if ($columns == '*'){
 			return $columns;
 		}
 
-		if (is_string($columns))
-		{
+		if (is_string($columns)){
 			$columns = array($columns);
 		}
 
 		$stack = array();
 
-		foreach ($columns as $key => $value)
-		{
+		foreach ($columns as $key => $value){
 			preg_match('/([a-zA-Z0-9_\-\.]*)\s*\(([a-zA-Z0-9_\-]*)\)/i', $value, $match);
 
-			if (isset($match[1], $match[2]))
-			{
-				array_push($stack, $this->column_quote( $match[1] ) . ' AS ' . $this->column_quote( $match[2] ));
-			}
-			else
-			{
-				array_push($stack, $this->column_quote( $value ));
+			if (isset($match[1], $match[2])){
+				array_push($stack, $this->columnQuote( $match[1] ) . ' AS ' . $this->columnQuote( $match[2] ));
+			} else {
+				array_push($stack, $this->columnQuote( $value ));
 			}
 		}
 
@@ -184,24 +96,18 @@ class medoo
 	protected function array_quote($array)
 	{
 		$temp = array();
-
-		foreach ($array as $value)
-		{
-			$temp[] = is_int($value) ? $value : $this->pdo->quote($value);
+		foreach ($array as $value){
+			$temp[] = is_int($value) ? $value : $this->quote($value);
 		}
-
 		return implode($temp, ',');
 	}
 
 	protected function inner_conjunct($data, $conjunctor, $outer_conjunctor)
 	{
 		$haystack = array();
-
-		foreach ($data as $value)
-		{
+		foreach ($data as $value) {
 			$haystack[] = '(' . $this->data_implode($value, $conjunctor) . ')';
 		}
-
 		return implode($outer_conjunctor . ' ', $haystack);
 	}
 
@@ -209,34 +115,22 @@ class medoo
 	{
 		$wheres = array();
 
-		foreach ($data as $key => $value)
-		{
+		foreach ($data as $key => $value){
 			$type = gettype($value);
 
-			if (
-				preg_match("/^(AND|OR)\s*#?/i", $key, $relation_match) &&
-				$type == 'array'
-			)
-			{
+			if (preg_match('/^(AND|OR)\s*#?/i', $key, $matches) && $type == 'array') {
 				$wheres[] = 0 !== count(array_diff_key($value, array_keys(array_keys($value)))) ?
-					'(' . $this->data_implode($value, ' ' . $relation_match[1]) . ')' :
-					'(' . $this->inner_conjunct($value, ' ' . $relation_match[1], $conjunctor) . ')';
-			}
-			else
-			{
+					'(' . $this->data_implode($value, ' ' . $matches[1]) . ')' :
+					'(' . $this->inner_conjunct($value, ' ' . $matches[1], $conjunctor) . ')';
+			} else {
 				preg_match('/([\w\.]+)(\[(\>|\>\=|\<|\<\=|\!|\<\>|\>\<)\])?/i', $key, $match);
-				$column = $this->column_quote($match[1]);
+				$column = $this->columnQuote($match[1]);
 
-				if (isset($match[3]))
-				{
-					if ($match[3] == '')
-					{
+				if (isset($match[3])) {
+					if ($match[3] == '') {
 						$wheres[] = $column . ' ' . $match[3] . '= ' . $this->quote($value);
-					}
-					elseif ($match[3] == '!')
-					{
-						switch ($type)
-						{
+					} elseif ($match[3] == '!') {
+						switch ($type) {
 							case 'NULL':
 								$wheres[] = $column . ' IS NOT NULL';
 								break;
@@ -254,56 +148,36 @@ class medoo
 								$wheres[] = $column . ' != ' . $this->quote($value);
 								break;
 						}
-					}
-					else
-					{
-						if ($match[3] == '<>' || $match[3] == '><')
-						{
-							if ($type == 'array')
-							{
-								if ($match[3] == '><')
-								{
+					} else {
+						if ($match[3] == '<>' || $match[3] == '><') {
+							if ($type == 'array') {
+								if ($match[3] == '><') {
 									$column .= ' NOT';
 								}
 
-								if (is_numeric($value[0]) && is_numeric($value[1]))
-								{
+								if (is_numeric($value[0]) && is_numeric($value[1])) {
 									$wheres[] = '(' . $column . ' BETWEEN ' . $value[0] . ' AND ' . $value[1] . ')';
-								}
-								else
-								{
+								} else {
 									$wheres[] = '(' . $column . ' BETWEEN ' . $this->quote($value[0]) . ' AND ' . $this->quote($value[1]) . ')';
 								}
 							}
-						}
-						else
-						{
-							if (is_numeric($value))
-							{
+						} else {
+							if (is_numeric($value)) {
 								$wheres[] = $column . ' ' . $match[3] . ' ' . $value;
-							}
-							else
-							{
+							} else {
 								$datetime = strtotime($value);
 
-								if ($datetime)
-								{
+								if ($datetime) {
 									$wheres[] = $column . ' ' . $match[3] . ' ' . $this->quote(date('Y-m-d H:i:s', $datetime));
 								}
 							}
 						}
 					}
-				}
-				else
-				{
-					if (is_int($key))
-					{
+				} else {
+					if (is_int($key)) {
 						$wheres[] = $this->quote($value);
-					}
-					else
-					{
-						switch ($type)
-						{
+					} else {
+						switch ($type) {
 							case 'NULL':
 								$wheres[] = $column . ' IS NULL';
 								break;
@@ -337,8 +211,7 @@ class medoo
 	{
 		$where_clause = '';
 
-		if (is_array($where))
-		{
+		if (is_array($where)) {
 			$where_keys = array_keys($where);
 			$where_AND = preg_grep("/^AND\s*#?$/i", $where_keys);
 			$where_OR = preg_grep("/^OR\s*#?$/i", $where_keys);
@@ -347,108 +220,85 @@ class medoo
 				explode(' ', 'AND OR GROUP ORDER HAVING LIMIT LIKE MATCH')
 			));
 
-			if ($single_condition != array())
-			{
+			if ($single_condition != array()) {
 				$where_clause = ' WHERE ' . $this->data_implode($single_condition, '');
 			}
 
-			if (!empty($where_AND))
-			{
+			if (!empty($where_AND)) {
 				$value = array_values($where_AND);
 				$where_clause = ' WHERE ' . $this->data_implode($where[ $value[0] ], ' AND');
 			}
 
-			if (!empty($where_OR))
-			{
+			if (!empty($where_OR)) {
 				$value = array_values($where_OR);
 				$where_clause = ' WHERE ' . $this->data_implode($where[ $value[0] ], ' OR');
 			}
 
-			if (isset($where['LIKE']))
-			{
+			if (isset($where['LIKE'])) {
 				$like_query = $where['LIKE'];
 
-				if (is_array($like_query))
-				{
+				if (is_array($like_query)) {
 					$is_OR = isset($like_query['OR']);
 					$clause_wrap = array();
 
-					if ($is_OR || isset($like_query['AND']))
-					{
+					if ($is_OR || isset($like_query['AND'])) {
 						$connector = $is_OR ? 'OR' : 'AND';
 						$like_query = $is_OR ? $like_query['OR'] : $like_query['AND'];
-					}
-					else
-					{
+					} else {
 						$connector = 'AND';
 					}
 
-					foreach ($like_query as $column => $keyword)
-					{
-						if (is_array($keyword))
-						{
-							foreach ($keyword as $key)
-							{
-								$clause_wrap[] = $this->column_quote($column) . ' LIKE ' . $this->quote('%' . $key . '%');
+					foreach ($like_query as $column => $keyword) {
+						if (is_array($keyword)) {
+							foreach ($keyword as $key) {
+								$clause_wrap[] = $this->columnQuote($column) . ' LIKE ' . $this->quote('%' . $key . '%');
 							}
-						}
-						else
-						{
-							$clause_wrap[] = $this->column_quote($column) . ' LIKE ' . $this->quote('%' . $keyword . '%');
+						} else {
+							$clause_wrap[] = $this->columnQuote($column) . ' LIKE ' . $this->quote('%' . $keyword . '%');
 						}
 					}
 
-					$where_clause .= ($where_clause != '' ? ' AND ' : ' WHERE ') . '(' . implode($clause_wrap, ' ' . $connector . ' ') . ')';
+					$where_clause .= ($where_clause != '' ? ' AND ' : ' WHERE ') . '('
+						. implode($clause_wrap, ' ' . $connector . ' ') . ')';
 				}
 			}
 
-			if (isset($where['MATCH']))
-			{
+			if (isset($where['MATCH'])) {
 				$match_query = $where['MATCH'];
 
-				if (is_array($match_query) && isset($match_query['columns'], $match_query['keyword']))
-				{
-					$where_clause .= ($where_clause != '' ? ' AND ' : ' WHERE ') . ' MATCH ("' . str_replace('.', '"."', implode($match_query['columns'], '", "')) . '") AGAINST (' . $this->quote($match_query['keyword']) . ')';
+				if (is_array($match_query) && isset($match_query['columns'], $match_query['keyword'])) {
+					$where_clause .= ($where_clause != '' ? ' AND ' : ' WHERE ') . ' MATCH ("'
+						. str_replace('.', '"."', implode($match_query['columns'], '", "')) . '") AGAINST ('
+						. $this->quote($match_query['keyword']) . ')';
 				}
 			}
 
-			if (isset($where['GROUP']))
-			{
-				$where_clause .= ' GROUP BY ' . $this->column_quote($where['GROUP']);
+			if (isset($where['GROUP'])) {
+				$where_clause .= ' GROUP BY ' . $this->columnQuote($where['GROUP']);
 			}
 
-			if (isset($where['ORDER']))
-			{
-				if (is_array($where['ORDER']))
-				{
-					$where_clause .= ' ORDER BY FIELD(' . $this->column_quote($where['ORDER'][0]) . ', ' . $this->array_quote($where['ORDER'][1]) . ')';
-				}
-				else
-				{
+			if (isset($where['ORDER'])) {
+				if (is_array($where['ORDER'])) {
+					$where_clause .= ' ORDER BY FIELD(' . $this->columnQuote($where['ORDER'][0]) . ', '
+						. $this->array_quote($where['ORDER'][1]) . ')';
+				} else {
 					preg_match('/(^[a-zA-Z0-9_\-\.]*)(\s*(DESC|ASC))?/', $where['ORDER'], $order_match);
 
-					$where_clause .= ' ORDER BY "' . str_replace('.', '"."', $order_match[1]) . '" ' . (isset($order_match[3]) ? $order_match[3] : '');
+					$where_clause .= ' ORDER BY "' . str_replace('.', '"."', $order_match[1]) . '" '
+					. (isset($order_match[3]) ? $order_match[3] : '');
 				}
 
-				if (isset($where['HAVING']))
-				{
+				if (isset($where['HAVING'])) {
 					$where_clause .= ' HAVING ' . $this->data_implode($where['HAVING'], '');
 				}
 			}
 
-			if (isset($where['LIMIT']))
-			{
-				if (is_numeric($where['LIMIT']))
-				{
+			if (isset($where['LIMIT'])) {
+				if (is_numeric($where['LIMIT'])) {
 					$where_clause .= ' LIMIT ' . $where['LIMIT'];
 				}
 
-				if (
-					is_array($where['LIMIT']) &&
-					is_numeric($where['LIMIT'][0]) &&
-					is_numeric($where['LIMIT'][1])
-				)
-				{
+				if (is_array($where['LIMIT']) && is_numeric($where['LIMIT'][0]) && is_numeric($where['LIMIT'][1])) {
 					$where_clause .= ' LIMIT ' . $where['LIMIT'][0] . ',' . $where['LIMIT'][1];
 				}
 			}
@@ -570,12 +420,12 @@ class medoo
 					$where = $join;
 				}
 
-				$column = $column_fn . '(' . $this->column_push($columns) . ')';
+				$column = $column_fn . '(' . $this->columnPush($columns) . ')';
 			}
 		}
 		else
 		{
-			$column = $this->column_push($columns);
+			$column = $this->columnPush($columns);
 		}
 
 		return 'SELECT ' . $column . ' FROM ' . $table . $this->where_clause($where);
@@ -662,12 +512,12 @@ class medoo
 			{
 				if (is_numeric($value))
 				{
-					$fields[] = $this->column_quote($match[1]) . ' = ' . $this->column_quote($match[1]) . ' ' . $match[3] . ' ' . $value;
+					$fields[] = $this->columnQuote($match[1]) . ' = ' . $this->columnQuote($match[1]) . ' ' . $match[3] . ' ' . $value;
 				}
 			}
 			else
 			{
-				$column = $this->column_quote($key);
+				$column = $this->columnQuote($key);
 
 				switch (gettype($value))
 				{
@@ -680,7 +530,7 @@ class medoo
 
 						if (isset($column_match[0]))
 						{
-							$fields[] = $this->column_quote($column_match[1]) . ' = ' . $this->quote(json_encode($value));
+							$fields[] = $this->columnQuote($column_match[1]) . ' = ' . $this->quote(json_encode($value));
 						}
 						else
 						{
@@ -827,4 +677,3 @@ class medoo
 		return $output;
 	}
 }
-?>

@@ -19,27 +19,16 @@
 ### Get Started
 
 ```php
-// Include Medoo (configured)
-require_once 'medoo.php';
-
-// Initialize
-$database = new medoo();
+// Create PDO connection and new Medoo object
+$pdo = new Pdo('pgsql:host=localhost;dbname=user', 'user', 'pass');
+$db = new Medoo\Medoo($pdo);
 
 // Enjoy
-$database->insert('account', [
+$db->insert('account', [
     'user_name' => 'foo'
     'email' => 'foo@bar.com',
     'age' => 25,
     'lang' => ['en', 'fr', 'jp', 'cn']
-]);
-
-// Or initialize via independent configuration
-$database = new medoo([
-    'database_type' => 'mysql',
-    'database_name' => 'name',
-    'server' => 'localhost',
-    'username' => 'your_username',
-    'password' => 'your_password',
 ]);
 ```
 
